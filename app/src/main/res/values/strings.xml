@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Clocky</string>
+    <string name="channel_service_name">Sleep Monitoring Service</string>
+    <string name="channel_service_desc">Keeps screen detection active for automatic alarm scheduling.</string>
+    <string name="channel_alarm_name">Wake Up Alarm</string>
+    <string name="channel_alarm_desc">Alarm alerts when sleep duration completes.</string>
+</resources>

@@ -1,0 +1,2046 @@
+# Screen-Off Sleep Alarm
+
+## Enterprise Product Requirements Document (PRD)
+
+**Document Version:** 1.0
+**Status:** Product Definition
+**Platform:** Android
+**Primary Market:** Global, initially India
+**Product Type:** Offline-first personal utility
+**Primary Function:** Automatically schedule a wake-up alarm based on the user's latest meaningful screen-off event plus a configurable sleep duration.
+
+---
+
+# 1. Executive Summary
+
+Screen-Off Sleep Alarm is an Android application that automatically schedules a wake-up alarm when the user stops using their phone for the night.
+
+The core interaction is:
+
+> **Screen turns off → application records the event → adds the configured sleep duration → schedules an alarm.**
+
+Example:
+
+```text
+Screen OFF
+11:42 PM
+
+Configured sleep duration
+7h 15m
+
+Automatically calculated alarm
+6:57 AM
+```
+
+When the user turns the screen back on, the application cancels the pending sleep alarm because the previous screen-off period is no longer considered an active sleep session.
+
+When the screen is subsequently turned off again, a new sleep session begins.
+
+The product must be:
+
+* Reliable
+* Battery-efficient
+* Offline-first
+* Privacy-preserving
+* Transparent
+* Resilient to Android background restrictions
+* Compatible with modern Android versions
+* Recoverable after device reboot
+* Deterministic in its scheduling behavior
+
+The product should not require a backend, account, or continuous internet connection for its core functionality.
+
+---
+
+# 2. Problem Statement
+
+Traditional alarm applications require users to manually choose a clock time.
+
+This creates friction for users whose bedtime varies.
+
+For example:
+
+```text
+Monday
+Sleep: 11:15 PM
+Wake: 6:30 AM
+
+Tuesday
+Sleep: 12:05 AM
+Wake: 7:20 AM
+
+Wednesday
+Sleep: 11:48 PM
+Wake: 7:03 AM
+```
+
+A fixed alarm requires the user to manually calculate or choose the wake-up time every night.
+
+The proposed product removes this step.
+
+The user specifies:
+
+> "I want approximately 7 hours 15 minutes of sleep."
+
+The application determines the wake-up time automatically based on when the user actually stops using the phone.
+
+---
+
+# 3. Product Vision
+
+Create the simplest reliable mechanism for turning **actual phone usage cessation into an automatically calculated wake-up time**.
+
+The product should eventually become a lightweight sleep-oriented automation platform rather than merely another alarm clock.
+
+Potential future capabilities:
+
+* Sleep duration goals
+* Sleep consistency tracking
+* Bedtime trends
+* Sleep-session analytics
+* Smart wake windows
+* Wearable integrations
+* Digital wellbeing integrations
+* Multiple sleep profiles
+* Travel/time-zone handling
+* Intelligent bedtime reminders
+
+However, these are explicitly outside the initial product scope.
+
+---
+
+# 4. Goals
+
+## 4.1 Primary Goals
+
+### G1 — Automatic alarm creation
+
+Automatically calculate and schedule an alarm when the user's phone enters a meaningful screen-off state.
+
+### G2 — Zero nightly configuration
+
+Once configured, the user should not need to manually set an alarm every night.
+
+### G3 — Reliable execution
+
+The scheduled alarm should fire at the intended time despite:
+
+* Screen being off
+* Device entering Doze mode
+* Background app inactivity
+* Application process termination
+* Device reboot
+
+### G4 — Battery efficiency
+
+The application must not continuously poll device state or run an unnecessary background service.
+
+### G5 — User control
+
+Users must be able to:
+
+* Enable/disable automation
+* Configure sleep duration
+* Cancel an upcoming alarm
+* Snooze
+* Stop an alarm
+* See the next calculated wake time
+
+### G6 — Privacy
+
+The product should operate entirely on-device for its core functionality.
+
+No account should be required.
+
+No screen content should be collected.
+
+No application usage history should be uploaded.
+
+---
+
+# 5. Non-Goals
+
+The following are explicitly excluded from V1:
+
+* Medical diagnosis
+* Sleep-quality diagnosis
+* Sleep apnea detection
+* Health recommendations
+* Cloud synchronization
+* Social features
+* Advertising in the core sleep flow
+* AI-based sleep analysis
+* Wearable integration
+* Cloud accounts
+* Cross-device synchronization
+* Automatic adjustment of sleep duration using health data
+* Continuous location tracking
+
+The product should not position itself as a medical or clinical sleep solution.
+
+---
+
+# 6. Target Users
+
+## Primary Persona — Variable Bedtime User
+
+A user who:
+
+* Has an inconsistent bedtime
+* Wants a consistent sleep duration
+* Uses their phone immediately before sleeping
+* Does not want to calculate wake-up times manually
+
+Example:
+
+> "I usually want 7–8 hours of sleep, but I don't go to bed at exactly the same time."
+
+---
+
+## Secondary Persona — Minimalist Alarm User
+
+A user who wants:
+
+* One simple alarm
+* No complicated sleep tracking
+* No account
+* No wearable
+* No cloud service
+
+---
+
+# 7. Core Product Principle
+
+The application's most important rule is:
+
+> **The latest meaningful screen-off event determines the current sleep session.**
+
+Example:
+
+```text
+10:45 PM
+Screen OFF
+    ↓
+10:50 PM
+Screen ON
+    ↓
+Cancel previous session
+    ↓
+11:20 PM
+Screen OFF
+    ↓
+Start new session
+    ↓
++7h15m
+    ↓
+6:35 AM alarm
+```
+
+This prevents short periods of inactivity from incorrectly becoming the user's bedtime.
+
+---
+
+# 8. Terminology
+
+### Screen-Off Event
+
+Android reports that the device screen has turned off.
+
+### Sleep Session
+
+A period beginning with a meaningful screen-off event and ending when the screen is turned on or the alarm fires.
+
+### Active Sleep Session
+
+The most recent screen-off event that has not been invalidated by a subsequent screen-on event.
+
+### Sleep Duration
+
+The amount of time the user wants between screen-off and alarm.
+
+Example:
+
+```text
+7h 15m = 435 minutes
+```
+
+### Wake Time
+
+The calculated time at which the alarm should fire.
+
+```text
+Wake Time = Sleep Session Start + Sleep Duration
+```
+
+---
+
+# 9. Core User Journey
+
+## First Launch
+
+```text
+Install
+  ↓
+Open application
+  ↓
+Explain functionality
+  ↓
+User chooses sleep duration
+  ↓
+User enables automatic alarm
+  ↓
+Application verifies required Android permissions/access
+  ↓
+Feature becomes active
+```
+
+---
+
+# 10. Primary User Flow
+
+```text
+                 User uses phone
+                       │
+                       ▼
+                Screen turns OFF
+                       │
+                       ▼
+             Android Broadcast/Event
+                       │
+                       ▼
+            Screen-Off Event Handler
+                       │
+                       ▼
+             Validate session rules
+                       │
+                       ▼
+              Record screen-off time
+                       │
+                       ▼
+       Calculate screen-off + duration
+                       │
+                       ▼
+              Schedule exact alarm
+                       │
+                       ▼
+           Persist session information
+                       │
+                       ▼
+              Phone remains idle
+                       │
+                       ▼
+                 Alarm fires
+                       │
+                       ▼
+              User stops/snoozes alarm
+```
+
+---
+
+# 11. Screen-On Behavior
+
+When the user turns the screen on before the alarm:
+
+```text
+SCREEN ON
+    ↓
+Check active sleep session
+    ↓
+Cancel scheduled alarm
+    ↓
+Invalidate current session
+```
+
+The application should **not** automatically reschedule another alarm from screen-on.
+
+The next screen-off event starts a new session.
+
+---
+
+# 12. Short Screen-Off Sessions
+
+A configurable minimum screen-off threshold should prevent accidental sessions.
+
+Recommended default:
+
+**15 minutes**
+
+Example:
+
+```text
+11:00 PM → Screen OFF
+11:04 PM → Screen ON
+```
+
+This should not be considered bedtime.
+
+Instead:
+
+```text
+11:00 PM
+Screen OFF
+
+11:04 PM
+Screen ON
+
+Session discarded
+```
+
+Configurable range:
+
+```text
+0 minutes
+5 minutes
+10 minutes
+15 minutes
+30 minutes
+60 minutes
+```
+
+For V1, this can remain an advanced setting.
+
+---
+
+# 13. Functional Requirements
+
+## FR-001 — Configure Sleep Duration
+
+The user must be able to configure desired sleep duration.
+
+Default:
+
+**7h 15m**
+
+Supported range:
+
+**1h – 24h**
+
+Recommended UI:
+
+```text
+Sleep Duration
+
+      7h 15m
+
+   −          +
+```
+
+The application should support:
+
+* Preset durations
+* Custom duration
+* Minute-level precision
+
+---
+
+## FR-002 — Enable Automatic Alarm
+
+The user must be able to enable/disable the automation.
+
+```text
+Automatic Sleep Alarm
+        [ ON ]
+```
+
+When disabled:
+
+* No new sleep sessions are created
+* Existing scheduled alarm should be cancelled
+
+---
+
+## FR-003 — Detect Screen-Off
+
+The application must detect Android's screen-off event.
+
+The implementation should be event-driven rather than polling.
+
+The application must not maintain a continuously running loop solely for screen detection.
+
+---
+
+## FR-004 — Detect Screen-On
+
+The application must detect screen-on events.
+
+A screen-on event invalidates the current sleep session.
+
+---
+
+## FR-005 — Calculate Wake Time
+
+Formula:
+
+```text
+wakeTime =
+    screenOffTimestamp +
+    configuredSleepDuration
+```
+
+Example:
+
+```text
+Screen off:
+23:42:10
+
+Sleep duration:
+7h15m
+
+Wake:
+06:57:10
+```
+
+---
+
+## FR-006 — Schedule Alarm
+
+The application must schedule the wake-up alarm using Android's appropriate exact-alarm mechanism.
+
+The scheduling system must support:
+
+* Device idle state
+* Application process termination
+* Background execution restrictions
+
+---
+
+## FR-007 — Cancel Alarm
+
+The application must cancel an existing alarm when:
+
+* Screen turns on
+* Automation is disabled
+* User explicitly cancels
+* Sleep duration is changed
+* A new valid sleep session replaces the old session
+
+---
+
+## FR-008 — Show Upcoming Alarm
+
+The main screen should display:
+
+```text
+Current Status
+
+Sleeping session active
+
+Screen off:
+11:42 PM
+
+Wake-up:
+6:57 AM
+
+Remaining:
+6h 52m
+```
+
+When no session exists:
+
+```text
+No active sleep session
+
+Turn your screen off to start.
+```
+
+---
+
+## FR-009 — Alarm Experience
+
+When the alarm fires:
+
+```text
+WAKE UP
+
+6:57 AM
+
+[ STOP ]
+
+[ SNOOZE 10 MIN ]
+```
+
+Alarm behavior should support:
+
+* Sound
+* Vibration
+* Notification
+* Full-screen alarm UI where appropriate
+* Stop
+* Snooze
+
+---
+
+# 14. Alarm Sound Requirements
+
+Users should be able to select:
+
+* Default alarm sound
+* Device alarm sounds
+* Custom sound where Android permissions/APIs permit
+
+Settings:
+
+```text
+Alarm Sound
+Volume
+Vibration
+Gradual Volume
+```
+
+---
+
+# 15. Snooze Requirements
+
+Default:
+
+**10 minutes**
+
+Supported:
+
+```text
+5 min
+10 min
+15 min
+20 min
+30 min
+```
+
+Snooze must schedule another exact wake event.
+
+Example:
+
+```text
+6:57 AM
+Alarm
+
+Snooze
+
+7:07 AM
+Alarm again
+```
+
+---
+
+# 16. Reboot Recovery
+
+The application must recover an active sleep session after device reboot where technically possible.
+
+Persist:
+
+```text
+sessionId
+screenOffTimestamp
+scheduledWakeTimestamp
+sleepDuration
+sessionState
+```
+
+After reboot:
+
+```text
+BOOT_COMPLETED
+      ↓
+Load persisted session
+      ↓
+Check session validity
+      ↓
+Check current time
+      ↓
+Recalculate/recover alarm
+      ↓
+Schedule alarm
+```
+
+If the calculated alarm time has already passed, the application should not blindly trigger an obsolete alarm.
+
+Instead, mark the session expired.
+
+---
+
+# 17. Permission & Access Management
+
+The application must clearly communicate why it needs special Android capabilities.
+
+Potential requirements include:
+
+* Notification permission
+* Exact alarm access
+* Boot completion permission
+
+The application must not request unrelated permissions.
+
+No requirement for:
+
+* Contacts
+* Location
+* Microphone
+* Camera
+* SMS
+* Phone calls
+* Accessibility access
+
+unless a future feature explicitly requires them.
+
+---
+
+# 18. Privacy Requirements
+
+## PR-001
+
+All core sleep-session data should remain local to the device.
+
+## PR-002
+
+The application must not capture:
+
+* Screen contents
+* Screenshots
+* Application names being used
+* Keystrokes
+* Messages
+* Browsing history
+
+## PR-003
+
+The application should not require account creation.
+
+## PR-004
+
+Analytics should be opt-in if they collect anything beyond anonymous operational telemetry.
+
+## PR-005
+
+No personal sleep data should be transmitted by default.
+
+---
+
+# 19. Data Model
+
+A lightweight local database is sufficient.
+
+For V1, DataStore may be sufficient.
+
+Example:
+
+```text
+Settings
+──────────────
+enabled
+sleepDurationMinutes
+minimumSessionMinutes
+snoozeDuration
+alarmSound
+vibrationEnabled
+gradualVolumeEnabled
+```
+
+Session:
+
+```text
+SleepSession
+────────────────────────
+id
+screenOffTimestamp
+scheduledWakeTimestamp
+state
+createdAt
+updatedAt
+```
+
+Possible states:
+
+```text
+ACTIVE
+CANCELLED
+COMPLETED
+EXPIRED
+SNOOZED
+```
+
+---
+
+# 20. State Machine
+
+The product should be implemented as an explicit state machine.
+
+```text
+                 ┌─────────────┐
+                 │    IDLE     │
+                 └──────┬──────┘
+                        │
+                   SCREEN_OFF
+                        │
+                        ▼
+              ┌──────────────────┐
+              │ SESSION_PENDING  │
+              └────────┬─────────┘
+                       │
+                threshold reached
+                       │
+                       ▼
+              ┌──────────────────┐
+              │     ACTIVE       │
+              └───────┬──────────┘
+                      │
+           ┌──────────┴──────────┐
+           │                     │
+      SCREEN_ON               ALARM
+           │                     │
+           ▼                     ▼
+       CANCELLED             RINGING
+                                 │
+                         ┌───────┴───────┐
+                         │               │
+                       STOP            SNOOZE
+                         │               │
+                         ▼               ▼
+                       IDLE          SCHEDULED
+```
+
+This explicit state model prevents race conditions and ambiguous behavior.
+
+---
+
+# 21. Concurrency & Race Conditions
+
+Android events can occur close together.
+
+Example:
+
+```text
+SCREEN_OFF
+SCREEN_ON
+SCREEN_OFF
+```
+
+The application must ensure that only the newest valid session owns the alarm.
+
+Every session should have a unique ID.
+
+Example:
+
+```text
+Session A
+11:00 PM
+
+Session B
+11:03 PM
+```
+
+When scheduling/cancelling:
+
+```text
+Alarm ownership = session ID
+```
+
+An old alarm must not be able to overwrite or cancel the newer session's alarm.
+
+---
+
+# 22. Idempotency
+
+Screen events must be processed idempotently.
+
+If the same event is delivered more than once:
+
+```text
+SCREEN_OFF
+SCREEN_OFF
+```
+
+the application must not create two independent alarms.
+
+The scheduler should use deterministic `PendingIntent` identity or explicitly cancel/replace the previous alarm.
+
+---
+
+# 23. Time Handling
+
+All internal timestamps should use absolute timestamps.
+
+Do not calculate sleep duration using formatted strings.
+
+Bad:
+
+```text
+"11:45 PM" + "7h15m"
+```
+
+Correct:
+
+```text
+Instant / epoch timestamp
++
+Duration
+```
+
+The application should account for:
+
+* Midnight
+* Day boundaries
+* Time-zone changes
+* Daylight-saving transitions
+* Manual system clock changes
+
+---
+
+# 24. Time-Zone Changes
+
+If the user travels between time zones while sleeping, the intended behavior should be defined explicitly.
+
+Recommended behavior:
+
+> Preserve the absolute scheduled instant unless the user changes the device clock/time zone before the alarm.
+
+For V1, use Android's wall-clock alarm mechanism and document behavior.
+
+---
+
+# 25. Daylight Saving Time
+
+The system must not assume every day has exactly 24 hours.
+
+The sleep duration is a duration, while the displayed wake time is a local wall-clock representation.
+
+---
+
+# 26. Android Architecture
+
+Recommended architecture:
+
+```text
+┌────────────────────────────────────┐
+│          Jetpack Compose UI        │
+└──────────────────┬─────────────────┘
+                   │
+                   ▼
+┌────────────────────────────────────┐
+│          ViewModel / State         │
+└──────────────────┬─────────────────┘
+                   │
+                   ▼
+┌────────────────────────────────────┐
+│       SleepSessionManager          │
+└───────────┬────────────────────────┘
+            │
+       ┌────┴─────────┐
+       ▼              ▼
+Preferences       AlarmScheduler
+Repository             │
+                       ▼
+                 Android AlarmManager
+                       │
+             ┌─────────┴─────────┐
+             ▼                   ▼
+     Screen Receivers       Alarm Receiver
+```
+
+---
+
+# 27. Architectural Principles
+
+## Event Driven
+
+Use Android system events rather than polling.
+
+## Offline First
+
+No backend dependency.
+
+## Deterministic
+
+Given:
+
+```text
+screenOffTime
+sleepDuration
+```
+
+the wake time should always be deterministic.
+
+## Minimal Runtime Footprint
+
+The app should spend most of its life inactive.
+
+## Failure Resilient
+
+Persist state before scheduling whenever practical.
+
+---
+
+# 28. Backend Architecture
+
+### V1
+
+No backend.
+
+```text
+Android Device
+     │
+     ├── UI
+     ├── State
+     ├── Alarm Scheduler
+     └── Receivers
+```
+
+This is preferable because a backend adds:
+
+* Cost
+* Infrastructure
+* Authentication
+* Privacy complexity
+* Network dependency
+
+without improving the core use case.
+
+---
+
+# 29. Optional V2 Backend
+
+Only introduce a backend if cloud functionality becomes valuable.
+
+Potential architecture:
+
+```text
+Android App
+     │
+     ▼
+API Gateway
+     │
+     ▼
+Backend API
+     │
+     ├── User Service
+     ├── Preferences
+     ├── Sleep Analytics
+     └── Device Sync
+             │
+             ▼
+          Database
+```
+
+Cloud synchronization must never be required for alarm execution.
+
+---
+
+# 30. Main Screens
+
+## Screen 1 — Dashboard
+
+```text
+────────────────────────────
+       Sleep Alarm
+────────────────────────────
+
+Automatic Alarm        ON
+
+Sleep Duration
+
+       7h 15m
+
+────────────────────────────
+
+No active sleep session
+
+Your alarm will be calculated
+when your screen turns off.
+
+────────────────────────────
+
+Next alarm
+      —
+
+────────────────────────────
+
+Settings
+────────────────────────────
+```
+
+---
+
+## Active Session
+
+```text
+────────────────────────────
+       Sleep Alarm
+────────────────────────────
+
+Automatic Alarm        ON
+
+Sleep session active
+
+Screen off
+11:42 PM
+
+Wake up
+6:57 AM
+
+Remaining
+6h 52m
+
+────────────────────────────
+
+[ Cancel Alarm ]
+
+────────────────────────────
+```
+
+---
+
+# 31. Settings
+
+```text
+Sleep Duration
+7h 15m
+
+Minimum Sleep Session
+15m
+
+Alarm Sound
+Default
+
+Snooze
+10m
+
+Vibration
+ON
+
+Gradual Volume
+ON
+
+Automatic Alarm
+ON
+
+────────────────────────────
+
+Permissions
+
+Exact Alarm
+Enabled
+
+Notifications
+Enabled
+
+────────────────────────────
+
+About
+Privacy
+```
+
+---
+
+# 32. Onboarding
+
+The onboarding should explain the product in three steps.
+
+### Step 1
+
+> Set how long you want to sleep.
+
+### Step 2
+
+> Turn off your screen when you go to bed.
+
+### Step 3
+
+> We'll calculate and schedule your wake-up alarm automatically.
+
+Then explain required Android access.
+
+---
+
+# 33. UX Requirements
+
+The product should optimize for **zero interaction at bedtime**.
+
+The user should not need to:
+
+* Open the application
+* Press a "Start Sleep" button
+* Set an alarm
+* Calculate a wake time
+
+The desired experience is:
+
+```text
+Configure once
+     ↓
+Use phone normally
+     ↓
+Put phone down
+     ↓
+Screen OFF
+     ↓
+Done
+```
+
+---
+
+# 34. Notifications
+
+The app should provide an optional persistent status notification only if Android requirements or product UX justify it.
+
+Example:
+
+> Sleep Alarm active — wake at 6:57 AM
+
+Users should be able to disable non-critical notifications.
+
+Alarm notifications must remain appropriately high priority.
+
+---
+
+# 35. Accessibility
+
+The application must support:
+
+* Screen readers
+* Large font sizes
+* TalkBack
+* Adequate touch targets
+* Non-color-only status indicators
+* High contrast
+* Dynamic font scaling
+
+The product must not rely solely on color to distinguish states.
+
+---
+
+# 36. Localization
+
+V1:
+
+* English
+
+Future:
+
+* Hindi
+* Telugu
+* Tamil
+* Kannada
+* Malayalam
+* Bengali
+* Marathi
+* Other high-value markets
+
+Time formatting should follow device locale.
+
+---
+
+# 37. Reliability Requirements
+
+Target:
+
+**99%+ successful alarm execution under supported device configurations**
+
+The product should test against:
+
+* Android 12+
+* Android 13
+* Android 14
+* Android 15
+* Android 16+
+* Major OEMs
+
+Priority OEMs:
+
+* Google Pixel
+* Samsung
+* OnePlus
+* Xiaomi
+* Motorola
+* Nothing
+* Oppo
+* Vivo
+
+OEM battery-management behavior must be specifically tested.
+
+---
+
+# 38. Performance Requirements
+
+### App startup
+
+Target:
+
+**<500 ms** under normal conditions.
+
+### Memory
+
+Target:
+
+**<100 MB** typical runtime footprint.
+
+### Battery
+
+The app should consume negligible battery while idle.
+
+The application must not:
+
+* Poll every second
+* Maintain an unnecessary foreground service
+* Keep the CPU awake
+* Use GPS
+* Maintain network connections
+
+---
+
+# 39. Security Requirements
+
+The application should follow Android platform security best practices.
+
+Requirements:
+
+* No unnecessary exported components
+* Explicitly set `android:exported`
+* Immutable PendingIntents where possible
+* No sensitive data in logs
+* No hardcoded secrets
+* Secure local storage where sensitive information exists
+* Minimal permissions
+* Dependency vulnerability scanning
+
+---
+
+# 40. Observability
+
+For a local-first product, observability should focus on diagnostics without collecting personal data.
+
+Internal diagnostic events could include:
+
+```text
+SCREEN_OFF_RECEIVED
+SESSION_CREATED
+ALARM_SCHEDULED
+ALARM_CANCELLED
+SCREEN_ON_RECEIVED
+ALARM_TRIGGERED
+ALARM_STOPPED
+ALARM_SNOOZED
+BOOT_RECOVERY
+EXACT_ALARM_PERMISSION_MISSING
+```
+
+Do not log:
+
+* Screen content
+* User activity
+* Personal information
+* App usage history
+
+---
+
+# 41. Analytics
+
+If analytics are introduced, useful anonymous metrics include:
+
+### Activation
+
+* Installation → first configuration
+* Configuration → first successful alarm
+
+### Reliability
+
+* Alarm scheduled
+* Alarm triggered
+* Alarm cancelled
+* Alarm recovered after reboot
+
+### Product usage
+
+* Average configured sleep duration
+* Number of active sessions
+* Snooze usage
+
+Sleep-related analytics should be handled carefully because they can constitute sensitive personal data.
+
+---
+
+# 42. Key Product Metrics
+
+## North Star Metric
+
+**Successful automatic wake-ups per active user**
+
+A successful wake-up means:
+
+```text
+Valid sleep session
++
+Alarm successfully scheduled
++
+Alarm successfully delivered
+```
+
+---
+
+## Secondary Metrics
+
+### Activation Rate
+
+```text
+Users enabling automatic alarm
+/
+New users
+```
+
+### Session Conversion
+
+```text
+Valid sleep sessions
+/
+Enabled users
+```
+
+### Alarm Reliability
+
+```text
+Successful alarm triggers
+/
+Scheduled alarms
+```
+
+### Cancellation Rate
+
+```text
+Cancelled sessions
+/
+Created sessions
+```
+
+### Snooze Rate
+
+```text
+Snoozed alarms
+/
+Triggered alarms
+```
+
+---
+
+# 43. Success Criteria
+
+V1 is successful if:
+
+1. A user configures the application once.
+2. The user turns the screen off.
+3. The application automatically calculates the correct wake time.
+4. Android schedules the alarm.
+5. The alarm fires at the expected time.
+6. Turning the screen on before bedtime cancels the previous session.
+7. Turning the screen off again creates a new session.
+8. Reboot recovery works.
+9. Battery consumption is negligible.
+10. No internet connection is required.
+
+---
+
+# 44. Failure Scenarios
+
+## Exact Alarm Access Disabled
+
+Display:
+
+> Automatic alarms require permission to schedule exact alarms. Enable access to ensure your alarm fires at the calculated time.
+
+---
+
+## Notifications Disabled
+
+Display:
+
+> Notifications are disabled. Alarm notifications may not appear correctly.
+
+---
+
+## Device Reboot
+
+Attempt to restore the active session.
+
+---
+
+## System Clock Changed
+
+Recalculate based on persisted session semantics and current system time.
+
+---
+
+## Application Force-Stopped
+
+Android restrictions may prevent receivers from functioning normally.
+
+The application should explain that manually force-stopping the app can prevent automation until it is opened again, where applicable.
+
+---
+
+# 45. Edge Cases
+
+### Midnight
+
+```text
+11:55 PM + 7h15m
+= 7:10 AM
+```
+
+Must work correctly.
+
+### Very Long Duration
+
+24-hour maximum prevents absurd alarm scheduling.
+
+### User Changes Duration During Session
+
+Recommended behavior:
+
+```text
+Current session exists
+       ↓
+User changes 7h15m → 8h
+       ↓
+Cancel old alarm
+       ↓
+Recalculate from original screen-off time
+       ↓
+Schedule new alarm
+```
+
+Do not reset bedtime merely because the configuration changed.
+
+---
+
+# 46. Security & Abuse Considerations
+
+The app should not expose an API that allows another application to arbitrarily manipulate alarms.
+
+Receivers should be non-exported where possible.
+
+PendingIntent identities should be deterministic and protected.
+
+The application should not use accessibility services as a workaround for screen-state detection.
+
+---
+
+# 47. Testing Strategy
+
+## Unit Tests
+
+Test:
+
+* Duration calculation
+* Session state transitions
+* Session validation
+* Alarm replacement
+* Alarm cancellation
+* Snooze calculations
+* Reboot recovery
+* Midnight crossing
+* Time-zone behavior
+
+Example:
+
+```text
+screenOff = 23:42
+duration = 435 minutes
+
+expected = 06:57
+```
+
+---
+
+## Integration Tests
+
+Test:
+
+```text
+SCREEN_OFF
+→ schedule alarm
+```
+
+```text
+SCREEN_OFF
+→ SCREEN_ON
+→ cancel alarm
+```
+
+```text
+SCREEN_OFF
+→ SCREEN_ON
+→ SCREEN_OFF
+→ new alarm
+```
+
+```text
+SCREEN_OFF
+→ reboot
+→ restore alarm
+```
+
+---
+
+# 48. Device Testing Matrix
+
+Minimum:
+
+| Manufacturer | Devices      |
+| ------------ | ------------ |
+| Google       | Pixel        |
+| Samsung      | Galaxy       |
+| OnePlus      | OnePlus      |
+| Xiaomi       | Redmi/Xiaomi |
+| Motorola     | Moto         |
+| Nothing      | Phone        |
+| Oppo         | Reno         |
+| Vivo         | V-series     |
+
+Test combinations of:
+
+* Android version
+* Battery saver
+* Doze
+* App process termination
+* Reboot
+* Exact alarm permission
+* Notification permission
+
+---
+
+# 49. Release Strategy
+
+## Phase 0 — Technical Prototype
+
+Duration:
+
+**1–2 weeks**
+
+Implement:
+
+* Screen-off detection
+* Screen-on detection
+* Alarm scheduling
+* Basic notification
+* Local persistence
+
+Success criteria:
+
+> The core loop works reliably on a physical Android device.
+
+---
+
+## Phase 1 — MVP
+
+Duration:
+
+**2–4 weeks**
+
+Add:
+
+* Compose UI
+* Configuration
+* Exact alarm permission flow
+* Snooze
+* Stop
+* Settings
+* Reboot recovery
+* Error states
+* Automated tests
+
+---
+
+## Phase 2 — Reliability Release
+
+Duration:
+
+**2–4 weeks**
+
+Focus entirely on:
+
+* OEM behavior
+* Battery optimization
+* Doze
+* Alarm reliability
+* Reboot
+* Race conditions
+* Time-zone behavior
+
+No major feature expansion.
+
+---
+
+## Phase 3 — Public Release
+
+Release through Google Play after:
+
+* Crash rate validation
+* Alarm reliability validation
+* Privacy review
+* Permission review
+* Play policy compliance
+* Device compatibility testing
+
+---
+
+# 50. Future Roadmap
+
+## V2 — Sleep Intelligence
+
+Potential features:
+
+* Sleep history
+* Bedtime trends
+* Wake-time consistency
+* Weekly reports
+* Sleep-duration goals
+
+Example:
+
+```text
+Sleep consistency
+
+Mon  7h12m
+Tue  7h18m
+Wed  6h51m
+Thu  7h24m
+Fri  7h10m
+```
+
+---
+
+## V3 — Smart Wake
+
+Instead of:
+
+```text
+Wake at exactly 7:00 AM
+```
+
+allow:
+
+```text
+Wake between
+6:45–7:00 AM
+```
+
+based on supported device signals.
+
+This should only be introduced after establishing that the basic alarm mechanism is highly reliable.
+
+---
+
+# 51. Monetization
+
+V1 should remain extremely simple.
+
+Potential model:
+
+### Free
+
+* Automatic alarm
+* Configurable sleep duration
+* Basic sounds
+* Snooze
+* Local history
+
+### Premium
+
+Potential future features:
+
+* Advanced analytics
+* Smart wake
+* Multiple profiles
+* Advanced alarm sounds
+* Wearable integrations
+* Cloud synchronization
+
+Do not put the core reliability feature behind an unnecessarily aggressive paywall.
+
+---
+
+# 52. Technical Risks
+
+| Risk                          | Impact   | Mitigation                                       |
+| ----------------------------- | -------- | ------------------------------------------------ |
+| OEM kills background behavior | Critical | Device testing + platform-compliant architecture |
+| Exact alarm restrictions      | Critical | Permission flow + fallback messaging             |
+| Reboot loses alarm            | High     | Persist state + boot recovery                    |
+| Duplicate events              | High     | Idempotent state machine                         |
+| Battery drain                 | Medium   | Event-driven design                              |
+| Clock changes                 | Medium   | Absolute timestamps + validation                 |
+| App force-stop                | High     | Document Android behavior                        |
+| Alarm delivery limitations    | Critical | Physical-device testing                          |
+| Permission denial             | High     | Clear onboarding                                 |
+| Incorrect session semantics   | Medium   | Explicit state machine                           |
+
+---
+
+# 53. Product Risks
+
+## Risk 1 — Users don't actually want screen-off automation
+
+The concept is differentiated but niche.
+
+Validate with a prototype before investing heavily.
+
+## Risk 2 — Android OEM fragmentation
+
+This is the largest technical risk.
+
+A feature that works perfectly on a Pixel can behave differently on aggressively optimized OEM devices.
+
+## Risk 3 — False bedtime detection
+
+Users may turn their screen off temporarily.
+
+The minimum-session threshold and explicit session model mitigate this.
+
+## Risk 4 — User expectation of alarm reliability
+
+This is an alarm application. Reliability is not a nice-to-have.
+
+A missed alarm is substantially worse than an ordinary app crash.
+
+---
+
+# 54. Product Principles
+
+### Principle 1 — Reliability over features
+
+A single reliable feature is more valuable than ten unreliable sleep features.
+
+### Principle 2 — No unnecessary background work
+
+Use Android events and scheduled alarms.
+
+### Principle 3 — Local by default
+
+Sleep automation does not need a server.
+
+### Principle 4 — Explain permissions
+
+Never surprise the user with system permission requests.
+
+### Principle 5 — Deterministic behavior
+
+The same inputs should produce the same wake time.
+
+### Principle 6 — Explicit state
+
+Do not build the core logic as scattered callbacks.
+
+### Principle 7 — Fail visibly
+
+If the application cannot guarantee automatic alarm behavior, tell the user.
+
+---
+
+# 55. Definition of Done — V1
+
+The product is considered production-ready when all of the following are true:
+
+### Core
+
+* [ ] User can configure sleep duration.
+* [ ] User can enable automation.
+* [ ] Screen-off event is detected.
+* [ ] Screen-on event is detected.
+* [ ] Sleep sessions are created correctly.
+* [ ] Sleep sessions can be cancelled.
+* [ ] Alarm time is calculated correctly.
+* [ ] Alarm is scheduled.
+* [ ] Alarm fires.
+* [ ] Alarm can be stopped.
+* [ ] Alarm can be snoozed.
+
+### Reliability
+
+* [ ] Reboot recovery works.
+* [ ] Duplicate events don't create duplicate alarms.
+* [ ] New sessions replace old sessions.
+* [ ] Exact alarm access is handled.
+* [ ] Doze behavior is tested.
+* [ ] Battery behavior is tested.
+* [ ] Major OEMs are tested.
+
+### Security
+
+* [ ] Minimal permissions.
+* [ ] No unnecessary exported components.
+* [ ] PendingIntents secured.
+* [ ] Sensitive data excluded from logs.
+* [ ] Dependency vulnerabilities reviewed.
+
+### Privacy
+
+* [ ] No account required.
+* [ ] No location required.
+* [ ] No screen content captured.
+* [ ] No application usage history collected.
+* [ ] Privacy policy completed.
+
+### UX
+
+* [ ] First-run onboarding completed.
+* [ ] Current session visible.
+* [ ] Next alarm visible.
+* [ ] Permission failures explained.
+* [ ] Accessibility tested.
+* [ ] Dark mode supported.
+* [ ] Large text tested.
+
+---
+
+# 56. Example End-to-End Scenario
+
+User configures:
+
+```text
+Sleep duration: 7h15m
+Minimum session: 15m
+Automatic alarm: ON
+```
+
+At:
+
+```text
+11:30 PM
+```
+
+the user turns off the screen.
+
+Application:
+
+```text
+SCREEN_OFF
+     ↓
+Create session
+     ↓
+screenOff = 23:30
+     ↓
+wake = 06:45
+     ↓
+Schedule exact alarm
+```
+
+At:
+
+```text
+11:34 PM
+```
+
+the user turns the screen on.
+
+Application:
+
+```text
+SCREEN_ON
+     ↓
+Invalidate session
+     ↓
+Cancel 06:45 alarm
+```
+
+At:
+
+```text
+11:52 PM
+```
+
+the user turns the screen off again.
+
+Application:
+
+```text
+SCREEN_OFF
+     ↓
+Create new session
+     ↓
+wake = 07:07 AM
+     ↓
+Schedule alarm
+```
+
+At:
+
+```text
+07:07 AM
+```
+
+the alarm fires.
+
+The user selects:
+
+```text
+Snooze 10 min
+```
+
+New alarm:
+
+```text
+07:17 AM
+```
+
+This is the complete intended lifecycle.
+
+---
+
+# 57. Recommended V1 Architecture
+
+```text
+                    ┌───────────────────────┐
+                    │    Android Device     │
+                    │                       │
+                    │  ┌─────────────────┐  │
+                    │  │ Compose UI      │  │
+                    │  └────────┬────────┘  │
+                    │           │           │
+                    │  ┌────────▼────────┐  │
+                    │  │ ViewModel       │  │
+                    │  └────────┬────────┘  │
+                    │           │           │
+                    │  ┌────────▼────────┐  │
+                    │  │ Session Manager │  │
+                    │  └──────┬───┬──────┘  │
+                    │         │   │         │
+                    │    ┌────▼┐ ┌▼──────┐  │
+                    │    │Data │ │Alarm  │  │
+                    │    │Store│ │Manager│  │
+                    │    └─────┘ └───┬───┘  │
+                    │                │      │
+                    │          ┌─────▼─────┐ │
+                    │          │ Android   │ │
+                    │          │ Alarm API │ │
+                    │          └───────────┘ │
+                    │                       │
+                    └───────────────────────┘
+```
+
+There should be **no server in the critical path**.
+
+---
+
+# 58. Final Product Definition
+
+The product can be summarized in one sentence:
+
+> **A privacy-first Android alarm that automatically calculates your wake-up time from the moment you genuinely stop using your phone.**
+
+The fundamental product loop is:
+
+```text
+CONFIGURE ONCE
+      ↓
+USE PHONE
+      ↓
+SCREEN OFF
+      ↓
++ SLEEP DURATION
+      ↓
+AUTOMATIC ALARM
+      ↓
+WAKE UP
+```
+
+The key engineering objective is not feature breadth. It is **alarm reliability under real Android operating-system and OEM constraints**.
+
+The correct development order is therefore:
+
+**Core event detection → deterministic state machine → exact alarm scheduling → reboot recovery → OEM reliability testing → polished UI → optional sleep intelligence.**
