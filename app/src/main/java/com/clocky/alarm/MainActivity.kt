@@ -205,7 +205,8 @@ fun AppleGradeClockyApp(prefs: PreferencesManager) {
             val now = System.currentTimeMillis()
             if (now - prefs.lastUpdateCheckMillis > 12 * 60 * 60 * 1000L) {
                 val currentCode = AppUpdateManager.getCurrentVersionCode(context)
-                val res = AppUpdateManager.checkForUpdate(prefs.updateEndpointUrl, currentCode)
+                val currentName = AppUpdateManager.getCurrentVersionName(context)
+                val res = AppUpdateManager.checkForUpdate(prefs.updateEndpointUrl, currentName, currentCode)
                 if (res is UpdateState.Available) {
                     updateState = res
                     showUpdateDialog = true
@@ -1601,7 +1602,8 @@ fun AppleAlarmSettingsScreen(
                             isCheckingUpdates = true
                             updateCheckResultText = null
                             val currentCode = AppUpdateManager.getCurrentVersionCode(context)
-                            val res = AppUpdateManager.checkForUpdate(prefs.updateEndpointUrl, currentCode)
+                            val currentName = AppUpdateManager.getCurrentVersionName(context)
+                            val res = AppUpdateManager.checkForUpdate(prefs.updateEndpointUrl, currentName, currentCode)
                             isCheckingUpdates = false
                             when (res) {
                                 is UpdateState.Available -> {

@@ -72,7 +72,11 @@ object AppUpdateManager {
      * Checks remote endpoint for updates.
      * Supports both custom version.json schema and GitHub Releases API schema.
      */
-    suspend fun checkForUpdate(endpointUrl: String, currentVersionCode: Int): UpdateState = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdate(
+        endpointUrl: String,
+        currentVersionName: String = "1.0.0",
+        currentVersionCode: Int = 1
+    ): UpdateState = withContext(Dispatchers.IO) {
         var connection: HttpURLConnection? = null
         try {
             val url = URL(endpointUrl)
@@ -95,7 +99,10 @@ object AppUpdateManager {
             val updateInfo = parseUpdateJson(json)
                 ?: return@withContext UpdateState.Error("Invalid update payload format")
 
-            if (updateInfo.versionCode > currentVersionCode) {
+            val isNewer = isNewerVersion(updateInfo.versionName, currentVersionName) ||
+                    (updateInfo.versionCode > currentVersionCode && updateInfo.versionName != currentVersionName)
+
+            if (isNewer) {
                 UpdateState.Available(updateInfo)
             } else {
                 UpdateState.UpToDate
@@ -105,6 +112,23 @@ object AppUpdateManager {
         } finally {
             connection?.disconnect()
         }
+    }
+
+    fun isNewerVersion(remoteVersion: String, currentVersion: String): Boolean {
+        val rClean = remoteVersion.removePrefix("v").trim()
+        val cClean = currentVersion.removePrefix("v").trim()
+        if (rClean.equals(cClean, ignoreCase = true)) return false
+
+        val rParts = rClean.split(".").mapNotNull { it.filter { ch -> ch.isDigit() }.toIntOrNull() }
+        val cParts = cClean.split(".").mapNotNull { it.filter { ch -> ch.isDigit() }.toIntOrNull() }
+        val maxLen = maxOf(rParts.size, cParts.size)
+        for (i in 0 until maxLen) {
+            val r = rParts.getOrElse(i) { 0 }
+            val c = cParts.getOrElse(i) { 0 }
+            if (r > c) return true
+            if (r < c) return false
+        }
+        return false
     }
 
     private fun parseUpdateJson(json: JSONObject): UpdateInfo? {
