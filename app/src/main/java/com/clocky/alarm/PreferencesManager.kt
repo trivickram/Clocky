@@ -191,6 +191,6 @@ class PreferencesManager(context: Context) {
         private const val KEY_AUTO_CHECK_UPDATES = "auto_check_updates"
         private const val KEY_UPDATE_ENDPOINT = "update_endpoint"
         private const val KEY_LAST_UPDATE_CHECK = "last_update_check"
-        const val DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/barath/Clocky/main/version.json"
+        const val DEFAULT_UPDATE_URL = "https://api.github.com/repos/trivickram/Clocky/releases/latest"
     }
 }

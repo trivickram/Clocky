@@ -15,8 +15,10 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -144,6 +146,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var prefs: PreferencesManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         super.onCreate(savedInstanceState)
         prefs = PreferencesManager(this)
 
@@ -699,26 +705,41 @@ fun AppleSleepScheduleScreen(prefs: PreferencesManager) {
                     Text("HUMAN 90-MIN ULTRADIAN CYCLES", fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp, color = AppleSecondaryLabel)
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        listOf(
-                            Pair(6, 0),
-                            Pair(7, 30),
-                            Pair(8, 0),
-                            Pair(9, 0)
-                        ).forEach { (h, m) ->
-                            val isSel = (sleepHours == h && sleepMinutes == m)
-                            val cyc = (h * 60 + m) / 90f
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (isSel) AppleBlue else AppleElevatedBg,
-                                border = BorderStroke(0.5.dp, if (isSel) AppleCyan else AppleBorder),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { updateDuration(h, m) }
-                            ) {
-                                Column(modifier = Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("${h}h${if (m > 0) "${m}m" else ""}", fontSize = 16.sp, fontWeight = FontWeight.Black, color = if (isSel) Color.White else AppleLabel)
-                                    Text(String.format("%.1f cyc", cyc), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isSel) Color(0xFFBFDBFE) else AppleSecondaryLabel)
+                    val cyclePresets = listOf(
+                        listOf(Pair(6, 0), Pair(6, 30), Pair(7, 0)),
+                        listOf(Pair(7, 30), Pair(8, 0), Pair(9, 0))
+                    )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        cyclePresets.forEach { rowPairs ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                rowPairs.forEach { (h, m) ->
+                                    val isSel = (sleepHours == h && sleepMinutes == m)
+                                    val cyc = (h * 60 + m) / 90f
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSel) AppleBlue else AppleElevatedBg,
+                                        border = BorderStroke(0.5.dp, if (isSel) AppleCyan else AppleBorder),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable { updateDuration(h, m) }
+                                    ) {
+                                        Column(modifier = Modifier.padding(vertical = 11.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = "${h}h${if (m > 0) " ${m}m" else ""}",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = if (isSel) Color.White else AppleLabel
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = String.format(Locale.US, "%.1f cyc", cyc),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSel) Color(0xFFBFDBFE) else AppleSecondaryLabel
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

@@ -78,6 +78,26 @@ class SleepMonitoringService : Service() {
         }
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Ensure service auto-respawns immediately even if user swipes app from Recent Tasks
+        if (prefs.isEnabled) {
+            val restartServiceIntent = Intent(applicationContext, SleepMonitoringService::class.java)
+            val restartPendingIntent = PendingIntent.getService(
+                applicationContext,
+                101,
+                restartServiceIntent,
+                PendingIntent.FLAG_ONE_SHOT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            )
+            val alarmManager = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+            alarmManager?.set(
+                android.app.AlarmManager.ELAPSED_REALTIME,
+                android.os.SystemClock.elapsedRealtime() + 1000,
+                restartPendingIntent
+            )
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun createNotificationChannel() {
